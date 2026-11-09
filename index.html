@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="NH 앱 시연">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <title>NH 모바일 앱 시연</title>
+  <style>
+    * { box-sizing:border-box; }
+    html,body { width:100%;height:100%;margin:0;overflow:hidden;background:#000000;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif; }
+    #app { width:100%;height:100vh;height:100dvh;margin:0 auto;background:white;position:relative;overflow:hidden; }
+    iframe { width:100%;height:100%;display:block;border:0;background:white; }
+    #setup { position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:28px;background:white;z-index:3; }
+    #setup[hidden] {display:none}
+    h1{font-size:22px;line-height:1.35;margin:0;} p{font-size:14px;line-height:1.6;color:#555;margin:0;} label{font-size:13px;font-weight:700;} input{border:1px solid #cdd3db;outline:none;border-radius:10px;padding:13px;font-size:14px;width:100%;} button{border:0;border-radius:10px;background:#1769aa;color:white;padding:14px;font-weight:700;font-size:15px;cursor:pointer;}
+    #error{color:#b62020;font-size:13px;min-height:16px;}
+    .hint{font-size:12px;color:#687586}
+    /* PC: 기존 430px보다 조금 더 넓은 500px 미리보기, 검정색 배경 중앙 정렬 */
+    @media (min-width:768px) {
+      body { display:flex;align-items:center;justify-content:center; }
+      #app {
+        width:min(500px, calc(100vw - 40px));
+        height:min(940px, calc(100dvh - 32px));
+        max-width:500px;
+        margin:auto;
+        border-radius:20px;
+        box-shadow:0 14px 55px rgba(255,255,255,.12);
+      }
+    }
+  </style>
+  <script src="./config.js"></script>
+</head>
+<body>
+  <main id="app">
+    <div id="setup" hidden>
+      <h1>모바일 앱 시연 연결</h1>
+      <p>Figma에서 <strong>Present(▶) → Share prototype → Copy link</strong>로 복사한 링크를 붙여넣어 주세요.</p>
+      <label for="url">Figma 프로토타입 링크</label>
+      <input id="url" inputmode="url" type="url" placeholder="https://www.figma.com/proto/..." autocomplete="off" />
+      <button id="save">이 휴대폰에서 시연 시작</button>
+      <p id="error"></p>
+      <p class="hint">이 입력은 현재 기기에만 저장됩니다. 다른 사람도 같은 주소를 열자마자 보게 하려면 config.js에 링크를 넣어 재배포하세요.</p>
+    </div>
+    <iframe id="prototype" title="Figma 모바일 앱 프로토타입" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe>
+  </main>
+  <script>
+    (function() {
+      const config = window.APP_CONFIG || {};
+      document.title = config.appName || '모바일 앱 시연';
+      const el = document.getElementById('prototype');
+      const setup = document.getElementById('setup');
+      const input = document.getElementById('url');
+      const error = document.getElementById('error');
+      const query = new URLSearchParams(location.search);
+      function figmaEmbed(value) {
+        const u = new URL(value.trim());
+        if (!['figma.com','www.figma.com','embed.figma.com'].includes(u.hostname) || !u.pathname.startsWith('/proto/')) {
+          throw Error('Figma의 /proto/ 공유 링크를 넣어 주세요. 디자인(/design/) 링크는 사용할 수 없습니다.');
+        }
+        u.protocol = 'https:';
+        u.hostname = 'embed.figma.com';
+        u.searchParams.set('embed-host', 'nh-portfolio-demo');
+        u.searchParams.set('footer', 'false');
+        u.searchParams.set('device-frame', 'false');
+        u.searchParams.set('hotspot-hints', 'false');
+        u.searchParams.set('viewport-controls', 'false');
+        u.searchParams.set('show-proto-sidebar', 'false');
+        u.searchParams.set('scaling', 'fit-width');
+        return u.href;
+      }
+      function show(url) {
+        try {
+          el.src = figmaEmbed(url);
+          el.hidden = false;
+          setup.hidden = true;
+          error.textContent = '';
+          return true;
+        } catch(e) {
+          el.hidden = true;
+          setup.hidden = false;
+          error.textContent = e.message;
+          return false;
+        }
+      }
+      const configured = (typeof config.prototypeUrl === 'string' && config.prototypeUrl.trim()) || '';
+      const saved = localStorage.getItem('nh_figma_prototype_link') || '';
+      if (!query.has('configure') && (configured || saved) && show(configured || saved)) {
+        // loaded
+      } else {
+        setup.hidden = false;
+        input.value = configured || saved;
+      }
+      document.getElementById('save').addEventListener('click', function() {
+        const val = input.value;
+        if (show(val)) localStorage.setItem('nh_figma_prototype_link', val.trim());
+      });
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    })();
+  </script>
+</body>
+</html>
